@@ -72,12 +72,17 @@ ACENTO = "#F59E0B"    # naranja para resaltar lo más alto
 GRIS = "#94A3B8"
 PALETA_ANIOS = {2024: GRIS, 2025: BASE, 2026: ACENTO}
 
-sns.set_theme(
-    style="whitegrid",
-    font_scale=0.85,
-    rc={"grid.color": "#E5E7EB", "axes.edgecolor": "#CBD5E1", "axes.labelcolor": "#334155",
-        "xtick.color": "#475569", "ytick.color": "#475569"},
-)
+def configurar_estilo(escala=0.85):
+    """Estilo de Seaborn para todos los gráficos (escala = tamaño de las letras)."""
+    sns.set_theme(
+        style="whitegrid",
+        font_scale=escala,
+        rc={"grid.color": "#E5E7EB", "axes.edgecolor": "#CBD5E1", "axes.labelcolor": "#334155",
+            "xtick.color": "#475569", "ytick.color": "#475569"},
+    )
+
+
+configurar_estilo()
 
 
 # ----------------------------------------------------------------------------
@@ -241,7 +246,7 @@ def barras_horizontales(tabla, x, y, fmt=None):
     fig, ax = plt.subplots(figsize=(6.4, 0.36 * len(tabla) + 1.0))
     sns.barplot(data=tabla, x=x, y=y, orient="h", color=BASE, ax=ax)
     ax.containers[0][0].set_color(ACENTO)
-    ax.bar_label(ax.containers[0], labels=[fmt(v) for v in tabla[x]], padding=3, fontsize=8, color="#334155")
+    ax.bar_label(ax.containers[0], labels=[fmt(v) for v in tabla[x]], padding=3, fontsize="small", color="#334155")
     ax.xaxis.set_major_locator(MaxNLocator(5))
     ax.xaxis.set_major_formatter(FuncFormatter(fmt))
     ax.set_xlabel("")
@@ -275,17 +280,20 @@ def graficos_estaticos(emp):
     return {"salarios": a_imagen(fig)}
 
 
-def graficos_del_periodo(anio, fac, det):
-    """Dibuja todos los gráficos para un año (o para todos si anio es None)."""
+def graficos_del_periodo(anio, fac, det, ultima_fecha=None):
+    """Dibuja todos los gráficos para un año (o para todos si anio es None).
+    ultima_fecha: último día con datos de toda la base (sirve para saber si el último mes quedó a medias)."""
     f = fac if anio is None else fac[fac["anio"] == anio]
     d = det if anio is None else det[det["anio"] == anio]
     g = {}
 
     # 1) Ventas por mes ------------------------------------------------------
     mensual = f.groupby(["anio", "mes"], as_index=False)["total"].sum()
-    ultima = fac["fecha"].max()  # si el último mes quedó a medias, no se dibuja (se vería como una caída falsa)
-    if ultima.day < ultima.days_in_month:
-        mensual = mensual[~((mensual["anio"] == ultima.year) & (mensual["mes"] == ultima.month))]
+    ultima = ultima_fecha if ultima_fecha is not None else fac["fecha"].max()
+    if ultima.day < ultima.days_in_month:  # si el último mes quedó a medias no se dibuja (se vería como una caída falsa)
+        sin_ultimo = mensual[~((mensual["anio"] == ultima.year) & (mensual["mes"] == ultima.month))]
+        if not sin_ultimo.empty:
+            mensual = sin_ultimo
     fig, ax = plt.subplots(figsize=(6.4, 3.4))
     if anio is None:
         sns.lineplot(data=mensual, x="mes", y="total", hue="anio", palette=PALETA_ANIOS,
@@ -315,7 +323,7 @@ def graficos_del_periodo(anio, fac, det):
             lambda v, pos: f"{MESES[mdates.num2date(v).month - 1]} {mdates.num2date(v).year % 100}"))
     else:
         ax.xaxis.set_major_formatter(FuncFormatter(lambda v, pos: MESES[mdates.num2date(v).month - 1]))
-    ax.tick_params(axis="x", labelsize=8)
+    ax.tick_params(axis="x", labelsize="small")
     ax.yaxis.set_major_formatter(FuncFormatter(formato_auto(acum["total"].max())))
     ax.set_xlabel("")
     ax.set_ylabel("")
@@ -329,7 +337,7 @@ def graficos_del_periodo(anio, fac, det):
     sns.barplot(data=por_dia, x="dia", y="total", order=DIAS, color=BASE, ax=ax)
     ax.containers[0][int(por_dia.loc[por_dia["total"].idxmax(), "dow"])].set_color(ACENTO)
     ax.yaxis.set_major_formatter(FuncFormatter(formato_auto(por_dia["total"].max())))
-    ax.tick_params(axis="x", labelsize=8)
+    ax.tick_params(axis="x", labelsize="small")
     ax.set_xlabel("")
     ax.set_ylabel("")
     sns.despine(ax=ax)
